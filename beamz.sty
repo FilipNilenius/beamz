@@ -1,0 +1,368 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% beamz.sty uses PGF/TikZ to draw beams with arbitrary loading and
+% support conditions. Shear force and bending moment diagrams are
+% also supported.
+%
+%
+% Written by Filip Nilenius, 2012
+% Last edited on: october, 2014
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\RequirePackage{tikz}
+\usetikzlibrary{patterns}
+\usetikzlibrary{arrows}
+\usetikzlibrary{calc}
+\usetikzlibrary{positioning}
+\usetikzlibrary{shapes}
+\usetikzlibrary{shapes.misc}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% To fix T(x) and M(x)
+% http://tex.stackexchange.com/questions/3513/draw-only-some-segments-of-a-path-in-tikz
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\makeatletter
+\long\def\my@drawfill#1#2;{%
+\@skipfalse
+\fill[#1,draw=none] #2;
+\@skiptrue
+\draw[#1,fill=none] #2;
+}
+
+\newif\if@skip
+
+\newcommand{\skipit}[1]{%
+\if@skip
+\else
+#1
+\fi
+}
+
+\newcommand{\drawfill}[1][]{%
+  \my@drawfill{#1}}
+\makeatother
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% tikz styles
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\tikzset{beam/.style={fill=black!20!white}}
+\tikzset{load/.style={<-,>=stealth,line width=1pt}}
+\tikzset{dimension/.style={|<->|,>=latex,shorten <=-0.2pt,shorten >=-0.2pt}}
+\tikzset{axes/.style={->,dashed}}
+\tikzset{distLoadLines/.style={line width=1pt}}
+\tikzset{distLoad/.style={pattern=vertical lines,pattern color=black!20,very thin}}
+\tikzset{moment/.style={>=stealth,line width=1pt}}
+\tikzset{displacement/.style={<-|,line width=1pt}}
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% beam
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newcommand{\beam}[2]{
+% set beam dimenstions
+\pgfmathsetmacro{\beamLength}{#1};
+\pgfmathsetmacro{\beamThickness}{#2};
+
+% draw beam and create corner nods A, B, C and D
+\draw[beam] (0,0) node (A){} -- ++(0:\beamLength) node (B){} -- ++(90:\beamThickness) node[midway] (moment){} node (C){} -- ++(180:\beamLength) node (D){} -- cycle;
+
+% thickness nods E and F
+\coordinate (E) at ($(A)!0.5!(D)$){};
+\coordinate (F) at ($(B)!0.5!(C)$){};
+}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% height support
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newcommand{\setSupportHeight}[1]{
+\pgfmathsetmacro{\supportHeight}{#1};
+}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% roller support
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newcommand{\rollerSupport}[1]{%
+% relative position along beam
+\coordinate (rollerSupportPosition) at ($(A)!#1!(B)$){};
+
+% set support lenghts
+\pgfmathsetmacro{\circleRadius}{\supportHeight*0.15};
+\pgfmathsetmacro{\triangleHeight}{\supportHeight-2*\circleRadius};
+\pgfmathsetmacro{\triangleSideLength}{\triangleHeight*2/1.7321};
+\pgfmathsetmacro{\groundLength}{\triangleHeight+5*\circleRadius};
+\pgfmathsetmacro{\groundHeight}{2*\circleRadius};
+
+% triangle
+\draw (rollerSupportPosition) -- ++(-60:\triangleSideLength) -- ++(-180:\triangleSideLength) -- ++(60:\triangleSideLength);
+
+% left circle
+\draw (rollerSupportPosition) ++(-90:\supportHeight-\circleRadius) ++(-180:\triangleSideLength/4) circle (\circleRadius);
+
+% right circle
+\draw (rollerSupportPosition) ++(-90:\supportHeight-\circleRadius) ++(0:\triangleSideLength/4) circle (\circleRadius);
+
+% ground
+\draw (rollerSupportPosition) ++(-90:\supportHeight) ++(-180:\groundLength/2) -- ++(0:\groundLength);
+\path[pattern=north west lines] (rollerSupportPosition) ++(-90:\supportHeight) ++(-180:\groundLength/2) -- ++(0:\groundLength) -- ++(-90:\groundHeight) -- ++(-180:\groundLength) -- cycle;
+}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% triangle support
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newcommand{\triangleSupport}[1]{%
+% relative position along beam
+\coordinate (rollerSupportPosition) at ($(A)!#1!(B)$){};
+
+% set support lenghts
+\pgfmathsetmacro{\triangleHeight}{\supportHeight};
+\pgfmathsetmacro{\triangleSideLength}{\triangleHeight*2/1.7321};
+\pgfmathsetmacro{\groundLength}{\triangleSideLength*1.5};
+\pgfmathsetmacro{\groundHeight}{\supportHeight*0.27};
+
+% triangle
+\draw (rollerSupportPosition) -- ++(-60:\triangleSideLength) -- ++(-180:\triangleSideLength) -- ++(60:\triangleSideLength);
+
+% ground
+\draw (rollerSupportPosition) ++(-90:\supportHeight) ++(-180:\groundLength/2) -- ++(0:\groundLength);
+\path[pattern=north west lines] (rollerSupportPosition) ++(-90:\supportHeight) ++(-180:\groundLength/2) -- ++(0:\groundLength) -- ++(-90:\groundHeight) -- ++(-180:\groundLength) -- cycle;
+}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% clamped
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newcommand{\clampedLeft}[2]{
+\path[pattern=north west lines] ($(A)!0.5!(D)$) -- ++(90:#1) node (clamptop){} -- ++(180:#2) -- ++(270:#1*2) -- ++(0:#2) node (clampbottom){} -- cycle;
+\draw (clampbottom.center) -- (clamptop.center);
+}
+\newcommand{\clampedRight}[2]{
+\path[pattern=north west lines] ($(B)!0.5!(C)$) -- ++(90:#1) node (clamptop){} -- ++(0:#2) -- ++(270:#1*2) -- ++(180:#2) node (clampbottom){} -- cycle;
+\draw (clampbottom.center) -- (clamptop.center);
+}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% point load
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newcommand{\pointLoad}[5]{
+\draw[load] ($(D)!#1!(C)$) ++(90:#5) -- ++(90:#2cm) node[#4] {#3};
+}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% point moment
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newcommand{\momentClockwise}[6]{
+\draw[dashed] ($(E)!#1!(F)$) --++(#3+#4:#2);
+\draw[<-,moment] ($(E)!#1!(F)$) node[fill=black,diamond,inner sep=1pt] {} ++(#3:#2) arc[radius = #2, start angle=#3, delta angle=#4/2] node[#6] {#5} arc[radius = #2, start angle=#3+#4/2, delta angle=#4/2];
+}
+\newcommand{\momentCounterclockwise}[6]{
+\draw[dashed] ($(E)!#1!(F)$) --++(#3:#2);
+\draw[->,moment] ($(E)!#1!(F)$) node[fill=black,diamond,inner sep=1pt] {} ++(#3:#2) arc[radius = #2, start angle=#3, delta angle=#4/2] node[#6] {#5} arc[radius = #2, start angle=#3+#4/2, delta angle=#4/2];
+}
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% distributed load
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newcommand{\distributedLoad}[6]{
+% space between beam and load
+\pgfmathsetmacro{\shiftDist}{0.1};
+
+% rectangle corners
+\coordinate (distLoadA) at ($(D)!#1!(C)+(0,\shiftDist+#6)$);
+\coordinate (distLoadB) at ($(D)!#2!(C)+(0,\shiftDist+#6)$);
+\coordinate (distLoadC) at ($(D)!#2!(C)+(0,\shiftDist+#5+#6)$);
+\coordinate (distLoadD) at ($(D)!#1!(C)+(0,\shiftDist+#5+#6)$);
+
+% pattern
+\path[distLoad] (distLoadA) -- (distLoadB) -- (distLoadC) -- (distLoadD) -- cycle;
+
+% horizontal lines
+\draw[distLoadLines] (distLoadA) -- (distLoadB);
+\draw[distLoadLines] (distLoadD) -- (distLoadC);
+
+% left arrow
+\draw[load] (distLoadA) -- (distLoadD) node[left] {#3};
+
+% right arrow
+\draw[load] (distLoadB) -- (distLoadC) node[right] {#4};
+
+% middle arrow
+\draw[load] ($(distLoadA)!0.5!(distLoadB)$) -- ($(distLoadD)!0.5!(distLoadC)$) node[draw, fill=white,circle,inner sep=2pt] {};
+}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% triangle load
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newcommand{\triangleloadLeft}[6]{
+% space between beam and load
+\pgfmathsetmacro{\shiftDist}{0.1};
+
+% triangle corners
+\coordinate (triLeftLoadA) at ($(D)!#1!(C)+(0,\shiftDist+#6)$);
+\coordinate (triLeftLoadB) at ($(D)!#2!(C)+(0,\shiftDist+#6)$);
+\coordinate (triLeftLoadD) at ($(D)!#1!(C)+(0,\shiftDist+#5+#6)$);
+
+% pattern
+\path[distLoad] (triLeftLoadA) -- (triLeftLoadB) -- (triLeftLoadD) -- cycle;
+
+% horizontal/sloping lines
+\draw[distLoadLines] (triLeftLoadA) -- (triLeftLoadB);
+\draw[distLoadLines] (triLeftLoadD) -- (triLeftLoadB);
+
+% left arrow
+\draw[load] (triLeftLoadA) -- (triLeftLoadD) node[#4] {#3};
+
+% middle arrow
+\draw[load] ($(triLeftLoadA)!0.5!(triLeftLoadB)$) -- ($(triLeftLoadD)!0.5!(triLeftLoadB)$) node[draw,fill=white,circle,inner sep=2pt]{};
+}
+
+\newcommand{\triangleloadRight}[6]{
+% space between beam and load
+\pgfmathsetmacro{\shiftDist}{0.1};
+
+% triangle corners
+\coordinate (triLeftLoadA) at ($(D)!#1!(C)+(0,\shiftDist+#6)$);
+\coordinate (triLeftLoadB) at ($(D)!#2!(C)+(0,\shiftDist+#6)$);
+\coordinate (triLeftLoadC) at ($(D)!#2!(C)+(0,\shiftDist+#5+#6)$);
+
+% pattern
+\path[distLoad] (triLeftLoadA) -- (triLeftLoadB) -- (triLeftLoadC) -- cycle;
+
+% horizontal/sloping lines
+\draw[distLoadLines] (triLeftLoadA) -- (triLeftLoadB);
+\draw[distLoadLines] (triLeftLoadA) -- (triLeftLoadC);
+
+% right arrow
+\draw[load] (triLeftLoadB) -- (triLeftLoadC) node[#4] {#3};
+
+% middle arrow
+\draw[load] ($(triLeftLoadA)!0.5!(triLeftLoadB)$) -- ($(triLeftLoadA)!0.5!(triLeftLoadC)$) node[draw,fill=white,circle,inner sep=2pt]{};
+}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% dimensions
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newcommand{\dimension}[5]{
+\draw[dimension] ($(A)!#1!(B)+(0,-#3)$) node (dimleft){} -- ($(A)!#2!(B)+(0,-#3)$) node (dimright){} node[midway,above] {#4};
+\draw[dashed] ($(A)!#1!(B)+(0,-#3)$) -- ($(A)!#1!(B)+(0,-#3+#3*#5)$);
+\draw[dashed] ($(A)!#2!(B)+(0,-#3)$) -- ($(A)!#2!(B)+(0,-#3+#3*#5)$);
+}
+
+
+
+\newcommand{\crossSymbol}[5]{
+\node[circle,draw,minimum size=#3mm,inner sep=0pt,label=#5:#4](client) at ($(A)!#1!(B)+(A)!#2!(D)$){};
+\node[cross out,draw,minimum size=#3mm,inner sep=0pt](client) at ($(A)!#1!(B)+(A)!#2!(D)$){};
+}
+
+\newcommand{\horizontalAxis}[1]{
+\draw[axes] (E) -- (F) -- ++(0:0.12*\beamLength) node[below] {#1};
+}
+\newcommand{\verticalAxis}[1]{
+\draw[axes] (E) -- (D) -- ++(90:1) node[left] {#1};
+}
+
+\newcommand{\coordinateSystem}[3]{
+\horizontalAxis{#1}
+\verticalAxis{#3}
+\crossSymbol{0}{0.5}{3}{#2}{left}
+}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% reaction force
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newcommand{\setReactionForceheight}[1]{
+\pgfmathsetmacro{\reactionForceheight}{#1};
+}
+\newcommand{\reactionForce}[3]{
+\draw[load,shift={(0,0)}] (#1*\beamLength,0) -- ++(-90:\reactionForceheight) node[midway,#3] {#2};
+}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% true beam length
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newcommand{\setTrueBeamLength}[1]{
+\pgfmathsetmacro{\trueBeamLength}{#1};
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% T(x)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newcommand{\Tofx}[3]{
+\begin{scope}[shift={(0,-#2)},xscale=\beamLength/\trueBeamLength]
+% T(x)
+\drawfill[pattern=vertical lines,pattern color=blue!40,yscale=#3,very thick] (0,0) \skipit{--} #1 \skipit{--} (\trueBeamLength,0);
+
+% Axis
+\draw[->,>=stealth] (0,0) node[left] {$0$} -- (0,1) node[left] {$T(x)$};
+\draw[dashed] (0,0) -- (\trueBeamLength,0) node[right] {$\tikz \draw[<-,>=stealth,yshift=0.25, solid] (0,0.5) -- (0,0);$}
+node[right=.2] {$\tikz \draw[->,>=stealth,yshift=0.25, solid] (0,0.5) -- (0,0);$};
+\end{scope}
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% M(x)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newcommand{\Mofx}[3]{
+
+\begin{scope}[shift={(0,-#2)},xscale=\beamLength*1/\trueBeamLength]
+% M(x)
+\drawfill[pattern=vertical lines,pattern color=red!40,yscale=#3,very thick] (0,0) \skipit{--} #1 \skipit{--} (\trueBeamLength,0);
+
+% Axis
+\draw[->,>=stealth] (0,0) node[left] {$0$} -- (0,1) node[left] {$M(x)$};
+\draw[dashed] (0,0) -- (\trueBeamLength,0) node[right] {$\tikz \draw [->,>=stealth,solid] (0,0) arc[radius=0.4, start angle=50, end angle=-50];$}
+node[right=0.3] {$\tikz \draw [<-,>=stealth,solid] (0,0) arc[radius=0.4, start angle=230, end angle=130];$};
+\end{scope}
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% joint
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newcommand{\joint}[1]{
+\draw[fill=white,thick] ($(E)!#1!(F)$) circle [radius=0.6*\beamThickness];
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% vertical lines
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newcommand{\setVerticalLineOffset}[1]{
+\pgfmathsetmacro{\verticalLineOffset}{#1}
+}
+\newcommand{\verticalLine}[3]{
+\draw[#3,shift={(0,-\verticalLineOffset)}] (#1*\beamLength,0) -- (#1*\beamLength,-#2);
+}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% beam annotation
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% annotation
+\newcommand{\beamAnnotationBelow}[2]{
+\node[below] at ($(A)!#1!(B)$) {#2};
+}
+
+\newcommand{\beamAnnotationAbove}[2]{
+\node[above] at ($(D)!#1!(C)$) {#2};
+}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% vertical displacement
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newcommand{\verticalDisplacement}[5]{
+\draw[displacement] ($(D)!#1!(C)$) ++(90:#5) -- ++(90:#2cm) node[#4] {#3};
+}
